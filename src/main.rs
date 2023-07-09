@@ -1,9 +1,11 @@
-use std::{time::SystemTime, vec};
+use std::{time::SystemTime, vec, collections::HashMap, str::CharIndices};
 use glam;
+use bracket_noise::prelude::*;
+use bracket_random::prelude::*;
 
 use glium::{glutin::{event_loop, event::ElementState, window::CursorGrabMode}, Surface};
 
-use crate::chunk::Chunk;
+use voxel_builder::{chunk::{Convert, Chunk, self, ChunkPosition, VoxelPosition}, chunk_manager::ChunkManager, chunk_mesh::{self, ChunkVertex, ChunkMesh}, window_context, camera::{self, FlyCamera}, voxel_data_manager::{VoxelDataManager, VoxelData}};
 
 #[macro_use]
 extern crate glium;
@@ -14,11 +16,6 @@ struct Vertex {
     position: [f32; 3],
     tex_coords: [f32; 2],
 }
-
-pub mod chunk_mesh;
-pub mod chunk;
-pub mod window_context;
-pub mod camera;
 
 fn main() {
     use glium::glutin;
@@ -34,43 +31,69 @@ fn main() {
     let mut m = window_context::Mouse::new();
 
     let mut cam = camera::FlyCamera::new();
-    cam.reset_mouse_pos(&display);
+    FlyCamera::reset_mouse_pos(&display);
 
+    let mut set_mode: u8 = 0;
+    let mut draw_mode: u32 = 0;
+    let mut colour_chunks: bool = true;
     let mut polygon_mode = glium::PolygonMode::Fill;
+    let mut cull_mode = glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise;
 
-    use chunk_mesh::ChunkVertex;
+    // Load images
+    let mut images: Vec<glium::texture::RawImage2d<'_, u8>> = vec![];
 
-    implement_vertex!(ChunkVertex, position, tex_coords);
+    let voxel_data_manager = VoxelDataManager::new(vec![
+        ("Air",        vec!["missing"]),
+        ("Grass",      vec!["grass_top", "dirt", "grass_side"]),
+        ("Dirt",       vec!["dirt"]),
+        ("Stone",      vec!["stone"]),
+        ("Deep Stone", vec!["deep_stone"]),
+        ("Sand",       vec!["sand"]),
+        ("Oak Log",    vec!["oak_log_top", "oak_log_top", "oak_log_side"]),
+        ("Oak Planks", vec!["oak_planks"]),
+        ("Leaves",     vec!["leaves"]),
+        ("Bricks",     vec!["bricks"]),
+    ], &mut images);
+    
+    let texture_2d_array = glium::texture::texture2d_array::Texture2dArray::new(&display, images).unwrap();
 
-    let mut chunk: Chunk = Chunk::new();
-    chunk.set_voxel_coordinate(glam::U64Vec3{x: 1, y: 0, z: 0}, 1);
-    let chunk_mesh: chunk_mesh::ChunkMesh = chunk_mesh::ChunkMeshBuilder::build_chunk_mesh(&chunk.voxels);
-    // implement_vertex!(Vertex, position, tex_coords);
+    let mut chunk_manager = ChunkManager::new(voxel_data_manager);
+    
+    println!("{:?}", chunk_manager.voxel_data_manager.get_texture_id(1, 1));
 
-    // let shape = vec![
-    //    Vertex { position: [-0.5,  0.5, 0.0], tex_coords: [0.0, 1.0] },
-    //    Vertex { position: [ 0.5,  0.5, 0.0], tex_coords: [1.0, 1.0] },
-    //    Vertex { position: [-0.5, -0.5, 1.0], tex_coords: [0.0, 0.0] },
-    //    Vertex { position: [ 0.5, -0.5, 0.0], tex_coords: [1.0, 0.0] },
-    // ];
-    // let ind: Vec<u16> = vec![0, 1, 2, 1, 3, 2];
+    let mut chunk_info: HashMap<ChunkPosition, (glium::VertexBuffer<ChunkVertex>, glium::IndexBuffer<u32>, u32)> = HashMap::new();
 
-    let vertex_buffer = glium::VertexBuffer::new(&display, &chunk_mesh.vertices).unwrap();
-    let indices = glium::IndexBuffer::new(&display, glium::index::PrimitiveType::TrianglesList,
-        &chunk_mesh.indices).unwrap();
+    for xi in 0..13 {
+        for yi in -2..1 {
+            for zi in 0..13 {
+                let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
+                chunk_manager.add_chunk(chunk_pos);
+    } } }
+
+    let mut q = 0;
+    for xi in 0..13 {
+        for yi in -2..1 {
+            for zi in 0..13 {
+                let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
+                
+                //let c = chunk_manager.get_chunk_mut(chunk_pos).unwrap();
+
+                let chunk_mesh: chunk_mesh::ChunkMesh = chunk_mesh::ChunkMeshBuilder::build_chunk_mesh(chunk_pos, &mut chunk_manager);
+                
+                let vertex_buffer = glium::VertexBuffer::new(&display, &chunk_mesh.vertices).unwrap();
+                let indexs = glium::IndexBuffer::new(&display, glium::index::PrimitiveType::TrianglesList,
+                    &chunk_mesh.indices).unwrap();
+                chunk_info.insert(chunk_pos, (vertex_buffer, indexs, q));
+                q+=1;
+            }
+        }
+        q+=2;
+    }
 
     let vertex_shader_src = include_str!("default.vert");
     let fragment_shader_src = include_str!("default.frag");
 
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
-    
-    // Load image
-    use std::io::Cursor;
-    let image = image::load(Cursor::new(&include_bytes!("../res/white.png")),
-                            image::ImageFormat::Png).unwrap().to_rgba8();
-    let image_dimensions = image.dimensions();
-    let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-    let texture = glium::texture::SrgbTexture2d::new(&display, image).unwrap();
 
     let mut looking = false;
     let mut fullscreen = false;
@@ -98,8 +121,50 @@ fn main() {
                 glutin::event::WindowEvent::CursorMoved { device_id, position, modifiers } => 
                     { m.set_pos(position); if (looking) { cam.handle_mouse_looking(&display, &position); }
                     },
-                
                 _ => return,
+            },
+            glutin::event::Event::MainEventsCleared => {
+                // Rendering
+                let mut target = display.draw();
+
+                cam.camera.calculate_perspective_matrix(&target);
+                cam.camera.calculate_view_matrix();
+        
+                // Clear the screen
+                target.clear_color_and_depth((0.05078125, 0.0546875, 0.0859375, 1.0), 1.0);
+                // Draw the triangle
+        
+                for (pos, (vertex_buffer, index_buffer, q)) in &chunk_info {
+                    let uniforms = uniform! {
+                        matrix: [
+                            [1.0, 0.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0, 0.0],
+                            [0.0, 0.0, 1.0, 0.0],
+                            [0.0, 0.0, 0.0, 1.0f32],
+                        ],
+                        perspective: cam.camera.perspective_matrix.to_cols_array_2d(),
+                        view: cam.camera.view_matrix.to_cols_array_2d(),
+                        texture_array: texture_2d_array.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+                        // chunk_position: glam::ivec3(0, 0, 0).to_array(),
+                        chunk_position: pos.to_array(),
+                        chunk_colour: *q,
+                        draw_mode: draw_mode,
+                        colour_chunks: colour_chunks,
+                    };
+            
+                    target.draw(vertex_buffer, index_buffer, &program, &uniforms, &glium::DrawParameters {
+                        polygon_mode: polygon_mode,
+                        depth: glium::Depth {
+                            test: glium::draw_parameters::DepthTest::IfLess,
+                            write: true,
+                            .. Default::default()
+                        },
+                        backface_culling: cull_mode,
+                        .. Default::default()
+                    }).unwrap();  
+                }
+                
+                target.finish().unwrap();
             },
             _ => (),
         }
@@ -108,14 +173,36 @@ fn main() {
             *control_flow = glutin::event_loop::ControlFlow::Exit;
         }
         if kb.key_pressed(glutin::event::VirtualKeyCode::C) {
-            println!("Wireframe mode");
+            println!("Wireframe toggled");
             polygon_mode = if matches!(polygon_mode, glium::PolygonMode::Line) {glium::PolygonMode::Fill} else {glium::PolygonMode::Line};
+        }
+        if kb.key_pressed(glutin::event::VirtualKeyCode::B) {
+            println!("Backface Culling toggled");
+            cull_mode = if matches!(cull_mode, glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise) {glium::draw_parameters::BackfaceCullingMode::CullingDisabled} else {glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise};
         }
         if kb.key_pressed(glutin::event::VirtualKeyCode::E) {
             looking = !looking;
             // Reset mouse to prevent jump (TODO: Make work)
             if looking == true {
-                cam.reset_mouse_pos(&display);
+                FlyCamera::reset_mouse_pos(&display);
+                display.gl_window().window().set_cursor_visible(false);
+            } else {
+                display.gl_window().window().set_cursor_visible(true);
+            }
+        }
+        if kb.key_pressed(glutin::event::VirtualKeyCode::X) {
+            colour_chunks = !colour_chunks;
+        }
+        if kb.key_pressed(glutin::event::VirtualKeyCode::Z) {
+            draw_mode += 1;
+            if draw_mode > 2 {
+                draw_mode = 0;
+            }
+        }
+        if kb.key_pressed(glutin::event::VirtualKeyCode::Q) {
+            set_mode = match set_mode {
+                0 => 9,
+                _ => 0,
             }
         }
         if kb.key_held(glutin::event::VirtualKeyCode::LAlt) && kb.key_pressed(glutin::event::VirtualKeyCode::Return) {
@@ -129,48 +216,45 @@ fn main() {
                 fullscreen = true;
             }
             // Reset mouse to prevent jump (TODO: Make work)
-            cam.reset_mouse_pos(&display);
+            FlyCamera::reset_mouse_pos(&display);
         }
 
         cam.handle_movement(&kb, &deltatime);
-
-        // -- DRAWING -- //
         
-        let mut target = display.draw();
+        let mut to_rebuild: Vec<ChunkPosition> = vec![];
+        
+        for i in 0..27 {
+            let cam_head_pos = cam.camera.position.as_ivec3() + glam::ivec3(i % 3, (i / 9)-1, (i / 3)%3)-(3/2);
+            if chunk_manager.get_voxel(cam_head_pos) == Some(set_mode) {
+                continue;
+            }
+            match chunk_manager.set_voxel(cam_head_pos, set_mode) {
+                true => {
+                    let cam_head_pos_chunk = Convert::global_to_chunk(cam_head_pos);
+                    to_rebuild.push(cam_head_pos_chunk);
+                    for (j, vp, cp) in chunk::RELATIVE_NEIGHBOURS {
+                        if Convert::global_to_local(cam_head_pos).to_array()[j] == vp {
+                            let chunk_neigbour = cam_head_pos_chunk + cp;
+                            if chunk_manager.get_chunk(chunk_neigbour).is_some() {
+                                to_rebuild.push(chunk_neigbour);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
 
-        cam.camera.calculate_perspective_matrix(&target);
-        cam.camera.calculate_view_matrix();
-        let behavior = glium::uniforms::SamplerBehavior {
-            minify_filter: glium::uniforms::MinifySamplerFilter::Nearest,
-            magnify_filter: glium::uniforms::MagnifySamplerFilter::Nearest,
-            ..Default::default()
-        };
-        let uniforms = uniform! {
-            matrix: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 2.0, 1.0f32],
-            ],
-            perspective: cam.camera.perspective_matrix.to_cols_array_2d(),
-            view: cam.camera.view_matrix.to_cols_array_2d(),
-            tex: glium::uniforms::Sampler(&texture, behavior),
-        };
-
-        // Clear the screen
-        target.clear_color_and_depth((0.05078125, 0.0546875, 0.0859375, 1.0), 1.0);
-        // Draw the triangle
-        target.draw(&vertex_buffer, &indices, &program, &uniforms, &glium::DrawParameters {
-            polygon_mode: polygon_mode,
-            depth: glium::Depth {
-                test: glium::draw_parameters::DepthTest::IfLess,
-                write: true,
-                .. Default::default()
-            },
-            //backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
-            .. Default::default()
-        }).unwrap();  
-        target.finish().unwrap();
+        to_rebuild.dedup();
+        
+        for cp in to_rebuild.clone() {
+            let new_chunk_mesh = chunk_mesh::ChunkMeshBuilder::build_chunk_mesh(cp, &mut chunk_manager);
+            chunk_info.get_mut(&cp).unwrap().0 = glium::VertexBuffer::new(&display, &new_chunk_mesh.vertices).unwrap();
+            chunk_info.get_mut(&cp).unwrap().1 = glium::IndexBuffer::new(&display, glium::index::PrimitiveType::TrianglesList,
+                    &new_chunk_mesh.indices).unwrap();
+                        
+        }
+        
 
         // -- END LOGIC -- //
         kb.clear();

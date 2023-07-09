@@ -1,4 +1,3 @@
-use std::cmp::min;
 use std::f32::consts::PI;
 
 use glium::Surface;
@@ -41,7 +40,7 @@ pub struct FlyCamera {
 }
 impl FlyCamera {
     pub fn new() -> Self {
-        Self { speed: 5.0, default_speed: 5.0, fast_speed: 10.0, camera: Camera::new() }
+        Self { speed: 5.0, default_speed: 5.0, fast_speed: 20.0, camera: Camera::new() }
     }
     pub fn handle_movement(&mut self, kb: &window_context::Keyboard, deltatime: &f32) {
         // Speed
@@ -82,16 +81,16 @@ impl FlyCamera {
     }
 
     pub fn handle_mouse_looking(&mut self, display: &glium::Display, pos: &PhysicalPosition<f64>) {
-        let cx = pos.x - (display.gl_window().window().inner_size().width/2) as f64;
-        let cy = pos.y - (display.gl_window().window().inner_size().height/2) as f64;
-        self.camera.rotation.y -= cx as f32 / 100.0;
-        self.camera.rotation.x -= cy as f32 / 100.0;
-        self.camera.rotation.x = self.camera.rotation.x.min(2.0).max(-2.0);
+        let cy = pos.x - (display.gl_window().window().inner_size().width/2) as f64;
+        let cx = pos.y - (display.gl_window().window().inner_size().height/2) as f64;
+        self.camera.rotation.y -= cy as f32 / 100.0;
+        self.camera.rotation.x -= cx as f32 / 100.0;
+        self.camera.rotation.x = self.camera.rotation.x.min(PI/2.0).max(-PI/2.0);
         self.camera.rotation.y = (self.camera.rotation.y).rem_euclid(PI*2.0);
-        self.reset_mouse_pos(display);
+        FlyCamera::reset_mouse_pos(display);
     }
 
-    pub fn reset_mouse_pos(&self, display: &glium::Display) {
+    pub fn reset_mouse_pos(display: &glium::Display) {
         let window_size = display.gl_window().window().inner_size();
         let _ = display.gl_window().window().set_cursor_position(glutin::dpi::LogicalPosition::new(window_size.width/2, window_size.height/2));
     }

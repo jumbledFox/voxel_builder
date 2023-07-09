@@ -5,7 +5,17 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Set the default for dependencies on dev profile
+[profile.dev.package."*"]
+opt-level = 3
+
 [dependencies]
 glam = "0.24.1"
 glium = "0.32.1"
 image = "0.24.6"
+bracket-noise = "0.8.7"
+bracket-random = "0.8.7"
