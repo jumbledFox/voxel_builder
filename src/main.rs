@@ -53,27 +53,26 @@ fn main() {
         ("Oak Planks", vec!["oak_planks"]),
         ("Leaves",     vec!["leaves"]),
         ("Bricks",     vec!["bricks"]),
+        ("C4",         vec!["c4", "c4", "c4_side"]),
     ], &mut images);
     
-    let texture_2d_array = glium::texture::texture2d_array::Texture2dArray::new(&display, images).unwrap();
+    let texture_2d_array = glium::texture::SrgbTexture2dArray::new(&display, images).unwrap();
 
     let mut chunk_manager = ChunkManager::new(voxel_data_manager);
-    
-    println!("{:?}", chunk_manager.voxel_data_manager.get_texture_id(1, 1));
 
     let mut chunk_info: HashMap<ChunkPosition, (glium::VertexBuffer<ChunkVertex>, glium::IndexBuffer<u32>, u32)> = HashMap::new();
 
-    for xi in 0..13 {
-        for yi in -2..1 {
-            for zi in 0..13 {
+    for xi in 0..15 {
+        for yi in -5..1 {
+            for zi in -15..15 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 chunk_manager.add_chunk(chunk_pos);
     } } }
 
     let mut q = 0;
-    for xi in 0..13 {
-        for yi in -2..1 {
-            for zi in 0..13 {
+    for xi in 0..15 {
+        for yi in -5..1 {
+            for zi in 0..15 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 
                 //let c = chunk_manager.get_chunk_mut(chunk_pos).unwrap();
@@ -144,7 +143,7 @@ fn main() {
                         ],
                         perspective: cam.camera.perspective_matrix.to_cols_array_2d(),
                         view: cam.camera.view_matrix.to_cols_array_2d(),
-                        texture_array: texture_2d_array.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+                        texture_array: texture_2d_array.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest).minify_filter(glium::uniforms::MinifySamplerFilter::Nearest),
                         // chunk_position: glam::ivec3(0, 0, 0).to_array(),
                         chunk_position: pos.to_array(),
                         chunk_colour: *q,
@@ -200,10 +199,11 @@ fn main() {
             }
         }
         if kb.key_pressed(glutin::event::VirtualKeyCode::Q) {
-            set_mode = match set_mode {
-                0 => 9,
-                _ => 0,
+            set_mode += 1;
+            if set_mode > 10 {
+                set_mode = 0;
             }
+            println!("Block: {:?}", chunk_manager.voxel_data_manager.get_name(set_mode));
         }
         if kb.key_held(glutin::event::VirtualKeyCode::LAlt) && kb.key_pressed(glutin::event::VirtualKeyCode::Return) {
             if fullscreen {

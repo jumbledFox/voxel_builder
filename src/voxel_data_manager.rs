@@ -68,4 +68,8 @@ impl VoxelDataManager {
     pub fn get_texture_id(&self, voxel: VoxelID, side: usize) -> u32 {
         self.voxel_data[voxel as usize].texture_ids[side]
     }
+
+    pub fn get_name(&self, voxel: VoxelID) -> String {
+        self.voxel_data[voxel as usize].name.clone()
+    }
 }
