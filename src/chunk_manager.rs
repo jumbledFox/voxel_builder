@@ -58,43 +58,33 @@ impl ChunkManager {
         for x in 0..32 {
             for z in 0..32 {
                 // Get noise height
-                let n = (self.noise.get_noise((x + chunk_pos.x*32) as f32 / 1000.0, (z + chunk_pos.z*32) as f32 / 1000.0) * 50.0) as i32 ;
-                // See whereabouts noise is relative to chunk
-                match chunk_pos.y.cmp(&((n as f32/(chunk::CHUNK_SIZE as f32)).floor() as i32)) {
-                    Ordering::Less => {
-                        let n_pos = n.rem_euclid(chunk::CHUNK_SIZE)-1;
-                        for y in 0..32 {
-                            let v: VoxelID;
-                            if y == n_pos {
-                                v = 1
-                            } else if y == n_pos-1 || y == n_pos-2 ||y == n_pos-3 {
-                                v = 2
-                            } else {
-                                v = 3
-                            }
-                            voxels[Chunk::coordinates_to_index(glam::ivec3(x, y, z))] = 3;
-                        };
-                    },
-                    Ordering::Equal => {
-                        let n_pos = n.rem_euclid(chunk::CHUNK_SIZE)-1;
-                        for y in 0..n_pos+1 {
-                            let v: VoxelID;
-                            if y == n_pos {
-                                if rng.range(0, 90) == 0 {
-                                    v = 6;
-                                } else {
-                                    v = 1;
-                                }
-                            } else if y == n_pos-1 || y == n_pos-2 ||y == n_pos-3 {
-                                v = 2
-                            } else {
-                                v = 3
-                            }
-                            voxels[Chunk::coordinates_to_index(glam::ivec3(x, y, z))] = v;
-                        };
-                    },
-                    Ordering::Greater => {},
-                }
+                let n = (self.noise.get_noise((x + chunk_pos.x*32) as f32 / 1000.0, (z + chunk_pos.z*32) as f32 / 1000.0) * 50.0) as i32;
+                // // If block is in chunk
+                // if (n as f32/(chunk::CHUNK_SIZE as f32)).floor() as i32 == chunk_pos.y {
+                // }
+
+                for y in 0..32 {
+                    let v: VoxelID;
+                    let global_y = y + (chunk_pos.y*32);
+                    if n < global_y {
+                        v = 0;
+                    } else if n == global_y {
+                        // grass
+                        if rng.range(0, 90) == 0 {
+                            v = 2;
+                            // make tree
+                            
+                        } else {
+                            v = 1;
+                        }
+                    } else if n <= global_y + 3 {
+                        v = 2;
+                    } else {
+                        v = 3;
+                    }
+
+                    voxels[Chunk::coordinates_to_index(glam::ivec3(x, y, z))] = v;
+                }    
                 //for y in 0..n {
                 //}
             }

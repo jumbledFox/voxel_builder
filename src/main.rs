@@ -64,7 +64,7 @@ fn main() {
 
     for xi in 0..15 {
         for yi in -5..1 {
-            for zi in -15..15 {
+            for zi in 0..15 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 chunk_manager.add_chunk(chunk_pos);
     } } }
@@ -223,6 +223,7 @@ fn main() {
         
         let mut to_rebuild: Vec<ChunkPosition> = vec![];
         
+        // TODO: AO needs updating
         for i in 0..27 {
             let cam_head_pos = cam.camera.position.as_ivec3() + glam::ivec3(i % 3, (i / 9)-1, (i / 3)%3)-(3/2);
             if chunk_manager.get_voxel(cam_head_pos) == Some(set_mode) {
