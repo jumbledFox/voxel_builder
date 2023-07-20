@@ -62,17 +62,17 @@ fn main() {
 
     let mut chunk_info: HashMap<ChunkPosition, (glium::VertexBuffer<ChunkVertex>, glium::IndexBuffer<u32>, u32)> = HashMap::new();
 
-    for xi in 0..15 {
+    for xi in 0..13 {
         for yi in -5..1 {
-            for zi in 0..15 {
+            for zi in 0..14 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 chunk_manager.add_chunk(chunk_pos);
     } } }
 
     let mut q = 0;
-    for xi in 0..15 {
+    for xi in 0..13 {
         for yi in -5..1 {
-            for zi in 0..15 {
+            for zi in 0..14 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 
                 //let c = chunk_manager.get_chunk_mut(chunk_pos).unwrap();

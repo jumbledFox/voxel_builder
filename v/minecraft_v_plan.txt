@@ -1,0 +1,146 @@
+first square / boilerplate opengl - i'm using glium for opengl and glam for math functions
+- video of first square
+
+helper classes (keyboard, mouse, and how easy they are)5//
+- helpers_1
+
+camera class - calculates matrices and stuff
+- camera_class
+
+flycamera class - moves around and looks around
+- video of flycamera looking
+- flycamera_class
+
+flycamera looking - how that works
+- flycamera_looking
+
+i then locked the camera to make sure you can't look upside down or anything like that
+- flycamera_looking_lock
+and i also made sure that y rotation stays between 0 and 360 degrees (which is 2 pi radians)
+- video of looking with console showing rotations being locked
+
+extended helper classes for first person camera
+- helpers_2
+
+I quickly added texture support
+- video of smiley face texture
+
+now to make chunks - describing a chunk - 32x32x32 array of blocks 
+- chunk_describe // TODO Make better
+
+i'll need to make functions to get and set blocks in a chunk, as well convert between an index in the chunk array and 3d coordinates
+- chunk_coordinate_conversion // TODO MAKE ACTUAL CODE
+
+blocks are stored as a u8 (8 bit number from 0 to 256) that represents their block id, meaning we can have up to 256 possible blocks
+for example, air could be 0, grass could be 1, stone could be 2
+- block_id_example
+
+now to build the mesh of a chunk
+we start with one square
+- describe_square_1 (square)
+it's made up of 4 vertices
+- describe_square_2 (with vertices)
+these vertices are in a vector, and all store information, such as their position, their light level, their texture coordinate (which I use as an index to an array of predetermined texture coordinates in the vertex shader, like this), and their texture id
+- describe_square_2_a-e + shader_tex_coords1.png
+these vertices connect up to form two triangles, we need to use triangles as they're the most efficient shape for your GPU to draw
+- describe_square_3 (with triangles)
+we tell OpenGL to connect the triangles with something called an index buffer
+- describe_square_4 (with empty array)
+this is a list of vertex indices, in which every 3 elements describe the vertices that make up a triangle
+- describe_square_5 (with array)
+we can see that it currently has 6 elements, the first 3 represent this frist triangle
+- describe_square_6 (triangle 1 highlighted)
+and the next 3 represent the other one
+- describe_square_7 (triangle 2 highlighted)
+if we do this loads of times we can begin to form a mesh
+- describe_square_8 (all triangles)
+
+after adding chunks, chunk meshes, and a chunk mesh builder, we've got a rendered chunk. however, if we go inside, we can see that 
+it's full of unnecessary meshes!
+- flying around and inside chunk with unnecessary meshes
+
+currently we just add every face for every block
+- naive_approach
+
+what we need to do is only add a block face to the chunk mesh if it's next to air or something transparent
+say for example we have this area of blocks 
+- shell_example_1
+all of the faces of every block are shown in red
+- shell_example_2
+however if we were to only add the ones adjacent to air, in blue, we'd be left with a sort of hollow shell around the landscape
+- shell_example_3
+this is good because all of the faces you wouldn't normally aren't being added to the mesh or drawn, which improves performance
+
+At first I had this weird error
+- video of weird hole
+It was due to x and z being flipped in the voxel index to coordinate function
+- x_z_flip_wrong
+- x_z_flip_right
+
+Now that that's been done, if I fly into the chunk we can see only the outer faces are being rendered, I've disabled backface culling to make this more obvious
+- video of flying into chunk with only outer faces 
+
+i currently only have one chunk, which is fine i guess, but i want more!
+So I made a chunk manager class that holds a hashmap of chunks and their position in the world
+- chunkmanager // TODO: update
+
+Now i've got multiple chunks, however as i fly around you can see that there are still unnecessary faces that you wouldn't see and don't need to draw
+- chunks_unnecessary
+
+we can fix this by, when building a chunk, if the block we're checking is on a chunk border, checking the adjacent block in the neighbouring chunk.
+
+(chunks_only_glitch(1&2) playing in the background)
+I had a lot of trouble implementing this because of the pesky function global_coord_to_chunk, which takes in a global voxel coordinate and returns the chunk it's in, at first i just divided the global voxel coordinate by 32, 
+- global_coord_to_chunk_wrong
+however this meant that if the coordinates of the block were negative at all, they'd round up and give the chunk 1 position ahead than where they actually were, which definitely caused problems when building the mesh.
+- chunk-1doesnotexist!
+What I needed to do instead was divide each coordinate by 32 and get the floor of it. I currently do it with floating point math and I'm sure there's a better way, but this shouldn't be too taxing and works fine for now.
+- global_coord_to_chunk_fixed
+
+Another notable error that stumped me for a while was this one
+- really_silly_errors
+which happened because I didn't check when finding a block in a chunk if the coordinates were in bounds or not
+
+// I had a lot of trouble with rust around here, especially the borrow checker and borrowing chunks, but i eventually figured it out
+
+But eventually I got the creation of multiple chunk meshes working
+- multiple_chunks_working.mkv
+
+Around this time a blahaj I ordered online arrived, here it is working on the codebase
+- blahaj.jpg
+
+
+So i then decided to see if i could edit blocks, i made it so every block at the players head in a 3x3 radius gets turned into air, and the chunk meshes get updated. At first I had a weird bug that was due to checking bounds incorrectly.
+- chunks_glitch3
+After fixing that, editing blocks worked as you can see here, however when blocks are updated at chunk borders, the neighbouring chunk mesh isn't updated meaning these sort of holes start to appear in the world. We can fix this by, when changing a block, checking if it lies on a chunk border and if so update the neighbouring chunks mesh as well
+- chunks_drill_gaps
+and with that fix we can now seamlessly fly around the world. I coloured each chunk to let you see where they end.
+- chunks_drill_nogaps
+
+I noticed things were getting quite choppy, so I decided to do some googling and found this reddit thread on r/rust_gamedev, in which a lovely redditor by the name of u/<name> suggested to the original op that they move their rendering into the MainEventsCleared event, which worked wonders for me as well! https://www.reddit.com/r/rust_gamedev/comments/kk2d1f/learning_glium_investigating_input_lag/
+// TODO images
+
+I also talked to some of the members of the 'No Boilerplate' discord server, and I got tons of good advice! I was told by someone to check out this link https://bevyengine.org/learn/book/getting-started/setup/#compile-with-performance-optimizations, even though I'm not using the Bevy game engine, has some very good tips for general fast performance which made things BUTTERY smooth, and I havent even optimised mesh generation yet!
+- chunks_drill_buttery_smooth
+
+
+// Ambient occlusion
+- ao_test0-3
+need to fix flipped faces.. will do later
+
+// Quick Noise Terrain
+I added some simple noise based terrain generation, however some of the future clips have a tweaked version of it that wasn't yet finished, leaving sometimes weird lines between vertically neighbouring chunks
+noise0-5
+
+// Adding multiple blocks
+multiple_blocks0
+texture0
+
+changing textures
+Textures too light
+texture array to srgb texture array
+texture_funnycols_1
+texture_minecraft
+// TODO record final
+
+Around this time I also tidied up and organised the codebase
