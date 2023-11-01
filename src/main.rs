@@ -62,17 +62,17 @@ fn main() {
 
     let mut chunk_info: HashMap<ChunkPosition, (glium::VertexBuffer<ChunkVertex>, glium::IndexBuffer<u32>, u32)> = HashMap::new();
 
-    for xi in 0..15 {
+    for xi in -8..8 {
         for yi in -5..1 {
-            for zi in 0..15 {
+            for zi in -8..8 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 chunk_manager.add_chunk(chunk_pos);
     } } }
 
     let mut q = 0;
-    for xi in 0..15 {
+    for xi in -8..8 {
         for yi in -5..1 {
-            for zi in 0..15 {
+            for zi in -8..8 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 
                 //let c = chunk_manager.get_chunk_mut(chunk_pos).unwrap();
@@ -111,7 +111,7 @@ fn main() {
                 glutin::event::WindowEvent::CloseRequested => 
                     *control_flow = glutin::event_loop::ControlFlow::Exit,
                 glutin::event::WindowEvent::KeyboardInput { device_id, input, is_synthetic } => 
-                    kb.process_input(input),
+                    {kb.process_input(input);},
                 glutin::event::WindowEvent::MouseInput { device_id, state, button, modifiers } => {
                     m.process_input(state, button);
                 }

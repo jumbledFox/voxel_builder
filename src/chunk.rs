@@ -1,5 +1,7 @@
 use glam;
 
+use std::collections::HashMap;
+
 pub const CHUNK_SIZE: i32 = 32;
 pub const CHUNK_SIZE_USIZE: usize = CHUNK_SIZE as usize;
 pub const CHUNK_SIZE_MIN1: i32 = CHUNK_SIZE-1;
@@ -19,10 +21,11 @@ pub const RELATIVE_NEIGHBOURS: [(usize, i32, ChunkPosition); 6] = [
 ];
 
 // Chunk - 32x32x32 array of voxels
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Chunk {
     pub voxels: VoxelList,
     pub position: ChunkPosition,
+    pub blocks_to_add: HashMap<VoxelPosition, VoxelID>,
 }
 
 impl Chunk {

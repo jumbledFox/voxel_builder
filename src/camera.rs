@@ -83,8 +83,8 @@ impl FlyCamera {
     pub fn handle_mouse_looking(&mut self, display: &glium::Display, pos: &PhysicalPosition<f64>) {
         let cy = pos.x - (display.gl_window().window().inner_size().width/2) as f64;
         let cx = pos.y - (display.gl_window().window().inner_size().height/2) as f64;
-        self.camera.rotation.y -= cy as f32 / 100.0;
-        self.camera.rotation.x -= cx as f32 / 100.0;
+        self.camera.rotation.y -= cy as f32 / 1000.0;
+        self.camera.rotation.x -= cx as f32 / 1000.0;
         self.camera.rotation.x = self.camera.rotation.x.min(PI/2.0).max(-PI/2.0);
         self.camera.rotation.y = (self.camera.rotation.y).rem_euclid(PI*2.0);
         FlyCamera::reset_mouse_pos(display);

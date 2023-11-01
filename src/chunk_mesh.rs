@@ -120,7 +120,8 @@ impl ChunkMeshBuilder {
                     let texture_id = chunk_manager.voxel_data_manager.get_texture_id(voxel_id, plane as usize);
                     // TODO: find a way to optimise this garbage
                     let ao = ChunkMeshBuilder::get_ambient_occlusion(Convert::local_to_global(chunk_position, Chunk::index_to_coordinates(i) + offset), chunk_manager, plane);
-                    mesh.add_face(face, Chunk::index_to_coordinates(i), texture_id, ao);//[3.0, 3.0, 3.0, 3.0]);
+                    //mesh.add_face(face, Chunk::index_to_coordinates(i), texture_id, [3.0, 3.0, 3.0, 3.0]);
+                    mesh.add_face(face, Chunk::index_to_coordinates(i), texture_id, ao);
                 }
             }
         }
