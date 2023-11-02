@@ -2,7 +2,7 @@ use glam;
 use glium::implement_vertex;
 implement_vertex!(ChunkVertex, position, tex_coords, light_level, texture_id, ambient_occlusion);
 
-use crate::{chunk::{Chunk, VoxelPosition, ChunkPosition, Convert, VoxelID}, chunk_manager::ChunkManager};
+use crate::{chunk::{Chunk, VoxelPosition, ChunkPosition, Convert, VoxelID}, chunk_manager::ChunkManager, voxel_data_manager::VoxelDataManager};
 
 #[derive(Copy, Clone)]
 pub struct ChunkVertex {
@@ -40,6 +40,9 @@ pub const LEFT_FACE   : MeshFace = MeshFace{ vertices: [0, 1, 1, 0, 1, 0, 0, 0, 
 pub const RIGHT_FACE  : MeshFace = MeshFace{ vertices: [1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0], light_level: 3 };
 pub const TOP_FACE    : MeshFace = MeshFace{ vertices: [1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1], light_level: 5 };
 pub const BOTTOM_FACE : MeshFace = MeshFace{ vertices: [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1], light_level: 2 };
+
+pub const CROSS_1 : MeshFace = MeshFace{ vertices: [1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1], light_level: 2 };
+pub const CROSS_2 : MeshFace = MeshFace{ vertices: [1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0], light_level: 2 };
 
 pub struct ChunkMesh {
     pub vertices: Vec<ChunkVertex>,
@@ -102,28 +105,35 @@ impl ChunkMeshBuilder {
         for (i, &voxel_id) in chunk.voxels.iter().enumerate() {
             // If it's air
             if voxel_id == 0 { continue; }
-            // For every face of the block, if it's neighbour is transparent, add the face to the mesh
-            for (face, offset, plane) in FACES_AND_OFFSETS {
-                let neighbour_coord = Chunk::index_to_coordinates(i) + offset;
-                let should_add_face;
-                if Chunk::coordinate_out_of_bounds(neighbour_coord) {
-                    // If the coordinate is out of bounds, check the neighbouring chunk
-                    let gotten_neighbour = chunk_manager.get_voxel(
-                        Convert::local_to_global(chunk_position,
-                            Chunk::index_to_coordinates(i)) + offset);
-                    should_add_face = gotten_neighbour == Some(0) || gotten_neighbour == None;
-                } else {
-                    // Otherwise check the current chunk
-                    should_add_face = chunk.get_voxel_from_coordinate(neighbour_coord) == 0;
+            // For each type of block
+            if chunk_manager.voxel_data_manager.get_voxel_type(voxel_id) == 0 {
+                // For every face of the block, if it's neighbour is transparent, add the face to the mesh
+                for (face, offset, plane) in FACES_AND_OFFSETS {
+                    let neighbour_coord = Chunk::index_to_coordinates(i) + offset;
+                    let should_add_face;
+                    if Chunk::coordinate_out_of_bounds(neighbour_coord) {
+                        // If the coordinate is out of bounds, check the neighbouring chunk
+                        let gotten_neighbour = chunk_manager.get_voxel(
+                            Convert::local_to_global(chunk_position,
+                                Chunk::index_to_coordinates(i)) + offset);
+                        should_add_face = gotten_neighbour == None || chunk_manager.voxel_data_manager.get_voxel_type(gotten_neighbour.unwrap_or(0)) == 1;
+                    } else {
+                        // Otherwise check the current chunk
+                        should_add_face = chunk_manager.voxel_data_manager.get_voxel_type(chunk.get_voxel_from_coordinate(neighbour_coord)) == 1;
+                    }
+                    if should_add_face {
+                        let texture_id = chunk_manager.voxel_data_manager.get_texture_id(voxel_id, plane as usize);
+                        // TODO: find a way to optimise this garbage
+                        let ao = ChunkMeshBuilder::get_ambient_occlusion(Convert::local_to_global(chunk_position, Chunk::index_to_coordinates(i) + offset), chunk_manager, plane);
+                        //mesh.add_face(face, Chunk::index_to_coordinates(i), texture_id, [3.0, 3.0, 3.0, 3.0]);
+                        mesh.add_face(face, Chunk::index_to_coordinates(i), texture_id, ao);
+                    }
                 }
-                if should_add_face {
-                    let texture_id = chunk_manager.voxel_data_manager.get_texture_id(voxel_id, plane as usize);
-                    // TODO: find a way to optimise this garbage
-                    let ao = ChunkMeshBuilder::get_ambient_occlusion(Convert::local_to_global(chunk_position, Chunk::index_to_coordinates(i) + offset), chunk_manager, plane);
-                    //mesh.add_face(face, Chunk::index_to_coordinates(i), texture_id, [3.0, 3.0, 3.0, 3.0]);
-                    mesh.add_face(face, Chunk::index_to_coordinates(i), texture_id, ao);
-                }
+            } else {
+                mesh.add_face(CROSS_1, Chunk::index_to_coordinates(i), chunk_manager.voxel_data_manager.get_texture_id(voxel_id, 0), [3.0, 3.0, 3.0, 3.0]);
+                mesh.add_face(CROSS_2, Chunk::index_to_coordinates(i), chunk_manager.voxel_data_manager.get_texture_id(voxel_id, 0), [3.0, 3.0, 3.0, 3.0]);
             }
+            
         }
 
         mesh // return mesh 

@@ -5,10 +5,12 @@ use crate::chunk::VoxelID;
 pub struct VoxelData {
     pub name: String,
     pub texture_ids: [u32; 6], // left top front right bottom back
+    pub voxel_type: u8,
 }
+
 impl VoxelData {
-    pub fn new(name: String, texture_ids: [u32; 6]) -> Self {
-        VoxelData { name: name, texture_ids: texture_ids }
+    pub fn new(name: String, texture_ids: [u32; 6], voxel_type: u8) -> Self {
+        VoxelData { name: name, texture_ids: texture_ids, voxel_type: voxel_type }
     }
 }
 
@@ -20,10 +22,10 @@ pub struct VoxelDataManager {
     voxel_data: Vec<VoxelData>
 }
 impl VoxelDataManager {
-    pub fn new(in_data: Vec<(&str, Vec<&str>)>, images: &mut Vec<glium::texture::RawImage2d<'_, u8>>) -> Self {
+    pub fn new(in_data: Vec<(&str, u8, Vec<&str>)>, images: &mut Vec<glium::texture::RawImage2d<'_, u8>>) -> Self {
         // Loop through in_data and make vector of images with no dupliates
         let mut image_names: Vec<&str> = vec![];
-        for (_, voxel_textures) in &in_data {
+        for (_, _, voxel_textures) in &in_data {
             for t in voxel_textures {
                 if image_names.contains(&t) { continue; }
                 image_names.push(t);
@@ -31,7 +33,7 @@ impl VoxelDataManager {
         }
         // Construct actual voxeldata
         let mut voxel_data: Vec<VoxelData> = vec![];
-        for (voxel_name, voxel_textures) in in_data {
+        for (voxel_name, voxel_type, voxel_textures) in in_data {
             let texture_ids: [u32; 6] = match voxel_textures.len() {
                 1 => [find_in_vec(&image_names, voxel_textures[0]); 6],
                 3 => [  find_in_vec(&image_names, voxel_textures[2]),
@@ -50,7 +52,7 @@ impl VoxelDataManager {
                     ],
                 _ => [0; 6],
             };
-            voxel_data.push(VoxelData { name: voxel_name.to_string(), texture_ids: texture_ids });
+            voxel_data.push(VoxelData { name: voxel_name.to_string(), texture_ids: texture_ids, voxel_type: voxel_type });
         }
         // Load images
         for image_name in &image_names {
@@ -71,5 +73,9 @@ impl VoxelDataManager {
 
     pub fn get_name(&self, voxel: VoxelID) -> String {
         self.voxel_data[voxel as usize].name.clone()
+    }
+
+    pub fn get_voxel_type(&self, voxel: VoxelID) -> u8 {
+        self.voxel_data[voxel as usize].voxel_type
     }
 }

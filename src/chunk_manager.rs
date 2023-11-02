@@ -1,4 +1,4 @@
-use std::{collections::HashMap, cmp::Ordering, hash::Hash};
+use std::{collections::HashMap, cmp::Ordering, hash::Hash, default};
 use {bracket_noise::prelude::*, bracket_random::prelude::RandomNumberGenerator};
 
 use crate::{chunk::{Convert, Chunk, self, ChunkPosition, VoxelPosition, VoxelID, VoxelList}, voxel_data_manager::VoxelDataManager};
@@ -60,7 +60,7 @@ impl ChunkManager {
         for x in 0..32 {
             for z in 0..32 {
                 // Get noise height
-                let n = (self.noise.get_noise((x + chunk_pos.x*32) as f32 / 1000.0, (z + chunk_pos.z*32) as f32 / 1000.0) * 50.0) as i32;
+                let n = (self.noise.get_noise((x + chunk_pos.x*32) as f32 / 2000.0, (z + chunk_pos.z*32) as f32 / 2000.0) * 50.0) as i32;
                 // // If block is in chunk
                 // if (n as f32/(chunk::CHUNK_SIZE as f32)).floor() as i32 == chunk_pos.y {
                 // }
@@ -75,10 +75,11 @@ impl ChunkManager {
                     // }
                     } else if n == global_y {
                         // grass
-                        if rng.range(0, 90) == 0 {
+                        let randnum = rng.range(0, 90);
+                        if randnum < 1 {
                             v = 2;
                             // make tree
-                            let trunktype = rng.range(1, 11);
+                            let trunktype = 9;
                             for trunkheight in 1..15 {
                                 if trunkheight+y >= 32 {
                                     // outisde chunk
@@ -96,6 +97,9 @@ impl ChunkManager {
                                     voxels_to_add.insert(glam::ivec3(x, trunkheight+y, z), trunktype);
                                 }
                             }
+                        } else if randnum < 30 {
+                            // tall grass
+                            v = 2;
                         } else {
                             v = 1;
                         }
@@ -117,13 +121,11 @@ impl ChunkManager {
             voxels[Chunk::coordinates_to_index(k)] = v;
         }
         if self.chunk_voxel_queue.contains_key(&chunk_pos) {
-            for i in self.chunk_voxel_queue.get(&chunk_pos) {
-                for (&k, &v) in i {
-                    voxels[Chunk::coordinates_to_index(k)] = v;
-                }
+            for (&k, &v) in self.chunk_voxel_queue.get(&chunk_pos).unwrap() {
+                voxels[Chunk::coordinates_to_index(k)] = v;
             }
         }
-        //voxels.fill(2);
+        //voxels.fill(9);
         voxels
     }
 

@@ -3,7 +3,7 @@ use glam;
 use bracket_noise::prelude::*;
 use bracket_random::prelude::*;
 
-use glium::{glutin::{event_loop, event::ElementState, window::CursorGrabMode}, Surface};
+use glium::{glutin::{event_loop, event::ElementState, window::CursorGrabMode}, Surface, Blend};
 
 use voxel_builder::{chunk::{Convert, Chunk, self, ChunkPosition, VoxelPosition}, chunk_manager::ChunkManager, chunk_mesh::{self, ChunkVertex, ChunkMesh}, window_context, camera::{self, FlyCamera}, voxel_data_manager::{VoxelDataManager, VoxelData}};
 
@@ -37,23 +37,25 @@ fn main() {
     let mut draw_mode: u32 = 0;
     let mut colour_chunks: bool = true;
     let mut polygon_mode = glium::PolygonMode::Fill;
-    let mut cull_mode = glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise;
+    let mut cull_mode = glium::draw_parameters::BackfaceCullingMode::CullingDisabled;
 
     // Load images
     let mut images: Vec<glium::texture::RawImage2d<'_, u8>> = vec![];
 
     let voxel_data_manager = VoxelDataManager::new(vec![
-        ("Air",        vec!["missing"]),
-        ("Grass",      vec!["grass_top", "dirt", "grass_side"]),
-        ("Dirt",       vec!["dirt"]),
-        ("Stone",      vec!["stone"]),
-        ("Deep Stone", vec!["deep_stone"]),
-        ("Sand",       vec!["sand"]),
-        ("Oak Log",    vec!["oak_log_top", "oak_log_top", "oak_log_side"]),
-        ("Oak Planks", vec!["oak_planks"]),
-        ("Leaves",     vec!["leaves"]),
-        ("Bricks",     vec!["bricks"]),
-        ("C4",         vec!["c4", "c4", "c4_side"]),
+        ("Air",         1, vec!["missing"]),
+        ("Grass Block", 0, vec!["grass_top", "dirt", "grass_side"]),
+        ("Dirt",        0, vec!["dirt"]),
+        ("Stone",       0, vec!["stone"]),
+        ("Deep Stone",  0, vec!["deep_stone"]),
+        ("Sand",        0, vec!["sand"]),
+        ("Oak Log",     0, vec!["oak_log_top", "oak_log_top", "oak_log_side"]),
+        ("Oak Planks",  0, vec!["oak_planks"]),
+        ("Leaves",      0, vec!["leaves"]),
+        ("Grass",       1, vec!["grass"]),
+        ("Cobblestone", 0, vec!["cobblestone"]),
+        ("Bricks",      0, vec!["bricks"]),
+        ("C4",          0, vec!["c4", "c4", "c4_side"]),
     ], &mut images);
     
     let texture_2d_array = glium::texture::SrgbTexture2dArray::new(&display, images).unwrap();
@@ -63,7 +65,7 @@ fn main() {
     let mut chunk_info: HashMap<ChunkPosition, (glium::VertexBuffer<ChunkVertex>, glium::IndexBuffer<u32>, u32)> = HashMap::new();
 
     for xi in -8..8 {
-        for yi in -5..1 {
+        for yi in -5..2 {
             for zi in -8..8 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 chunk_manager.add_chunk(chunk_pos);
@@ -71,7 +73,7 @@ fn main() {
 
     let mut q = 0;
     for xi in -8..8 {
-        for yi in -5..1 {
+        for yi in -5..2 {
             for zi in -8..8 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 
@@ -158,6 +160,7 @@ fn main() {
                             write: true,
                             .. Default::default()
                         },
+                        blend: Blend::alpha_blending(),
                         backface_culling: cull_mode,
                         .. Default::default()
                     }).unwrap();  
@@ -166,6 +169,8 @@ fn main() {
                 target.finish().unwrap();
             },
             _ => (),
+
+            // TODO: make transparent objects their own mesh
         }
 
         if kb.key_pressed(glutin::event::VirtualKeyCode::Escape) {
@@ -200,7 +205,7 @@ fn main() {
         }
         if kb.key_pressed(glutin::event::VirtualKeyCode::Q) {
             set_mode += 1;
-            if set_mode > 10 {
+            if set_mode > 11 {
                 set_mode = 0;
             }
             println!("Block: {:?}", chunk_manager.voxel_data_manager.get_name(set_mode));
