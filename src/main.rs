@@ -64,17 +64,17 @@ fn main() {
 
     let mut chunk_info: HashMap<ChunkPosition, (glium::VertexBuffer<ChunkVertex>, glium::IndexBuffer<u32>, u32)> = HashMap::new();
 
-    for xi in -8..8 {
-        for yi in -5..2 {
-            for zi in -8..8 {
+    for xi in -5..5 {
+        for yi in -5..3 {
+            for zi in -5..5 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 chunk_manager.add_chunk(chunk_pos);
     } } }
-
+    
     let mut q = 0;
-    for xi in -8..8 {
-        for yi in -5..2 {
-            for zi in -8..8 {
+    for xi in -5..5 {
+        for yi in -5..3 {
+            for zi in -5..5 {
                 let chunk_pos: ChunkPosition = glam::ivec3(xi, yi, zi);
                 
                 //let c = chunk_manager.get_chunk_mut(chunk_pos).unwrap();
@@ -156,6 +156,7 @@ fn main() {
                     target.draw(vertex_buffer, index_buffer, &program, &uniforms, &glium::DrawParameters {
                         polygon_mode: polygon_mode,
                         depth: glium::Depth {
+                            
                             test: glium::draw_parameters::DepthTest::IfLess,
                             write: true,
                             .. Default::default()

@@ -24,4 +24,7 @@ void main() {
     } else { // AO
         color = vec4(v_chunk_colour, 1) * vec4(vec3(1 - (v_ambient_occlusion*2.2)), 1);
     }
+    if (color.a == 0) {
+        discard;
+    }
 }

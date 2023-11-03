@@ -79,8 +79,11 @@ impl ChunkManager {
                         if randnum < 1 {
                             v = 2;
                             // make tree
-                            let trunktype = 9;
+                            let mut trunktype = 6;
                             for trunkheight in 1..15 {
+                                if trunkheight == 14 {
+                                    trunktype = 8;
+                                }
                                 if trunkheight+y >= 32 {
                                     // outisde chunk
                                     let global_block_pos = glam::ivec3(x, trunkheight+y, z) + (chunk_pos * 32);
@@ -99,7 +102,7 @@ impl ChunkManager {
                             }
                         } else if randnum < 30 {
                             // tall grass
-                            v = 2;
+                            v = 9
                         } else {
                             v = 1;
                         }
